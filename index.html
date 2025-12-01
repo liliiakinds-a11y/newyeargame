@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>ユニコーンジャンプ</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #ffeefc; font-family: "Noto Sans JP", sans-serif; }
+  #gameCanvas { display: block; margin: 0 auto; background: linear-gradient(#d6eaff, #ffffff); border: 3px solid #fff; }
+  #startScreen, #clearScreen {
+    position: absolute; top:0; left:0; width:100%; height:100%;
+    background: rgba(255,255,255,0.8);
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    font-size:28px; text-align:center; z-index:10; padding:20px;
+  }
+  button {
+    margin-top:20px; padding:12px 28px; font-size:22px;
+    border-radius:12px; border:3px solid #ffd700; cursor:pointer;
+    color:white; font-weight:bold; text-shadow:0 2px 3px rgba(0,0,0,0.3); transition:0.25s;
+  }
+  #startScreen button { background: #0fad59; }
+  #clearScreen button { background: #d62828; }
+  button:hover { background:#fff;color:#d62828;border-color:#fff; box-shadow:0 0 12px rgba(255,255,255,0.9),0 0 25px rgba(255,0,0,0.5);}
+  #clearScreen img { width:200px; margin-bottom:20px; }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <h1>🎉ユニコーンジャンプ🎉</h1>
+  <p>ルール：</p>
+  <ul style="text-align:left; font-size:22px;">
+    <li>左右キーでユニコーンを移動</li>
+    <li>プラットフォームに着地してジャンプ</li>
+    <li>頂上の会社ロゴを目指そう！</li>
+    <li>下に落ちるとゲームが最初からやり直し</li>
+  </ul>
+  <button onclick="startGame()">スタート</button>
+</div>
+
+<div id="clearScreen" style="display:none;">
+  <img src="https://i.postimg.cc/Y0YxR5GT/020-yunikonzu-rogo.png" alt="Company Logo">
+  <h1>🎊 クリア！ 🎊</h1>
+  <p>頂上に到達！<br>今年もよろしくお願いします🐉✨</p>
+  <button onclick="location.reload()">もう一度</button>
+</div>
+
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Unicorn image
+const unicornImgURL = "https://i.postimg.cc/2jZwwYrf/351085a0_4f76_46d3_8386_7abcd94ce23d_(1).png";
+const playerImg = new Image();
+playerImg.src = unicornImgURL;
+
+// Player
+let player = { x:200, y:500, size:50, vy:0 };
+
+// Controls
+let left=false, right=false;
+document.addEventListener("keydown",(e)=>{ if(e.key==="ArrowLeft") left=true; if(e.key==="ArrowRight") right=true; });
+document.addEventListener("keyup",(e)=>{ if(e.key==="ArrowLeft") left=false; if(e.key==="ArrowRight") right=false; });
+
+// Platforms
+let platforms = [];
+const platformCount = 12;
+for(let i=0;i<platformCount;i++){
+  platforms.push({x:Math.random()*320, y:600-i*50});
+}
+
+// Goal platform (top)
+const goalPlatform = { x:150, y:-100, width:100, height:20, logo:"https://i.postimg.cc/Y0YxR5GT/020-yunikonzu-rogo.png" };
+
+// Snow
+let snowflakes = [];
+for(let i=0;i<80;i++){
+  snowflakes.push({x:Math.random()*400,y:Math.random()*600,radius:Math.random()*3+1,speed:Math.random()*1+0.5});
+}
+
+// Sparkles
+let sparkles = [];
+
+let gravity=0.3,jumpPower=-8,gameStarted=false;
+
+function startGame(){ document.getElementById("startScreen").style.display="none"; gameStarted=true; loop(); }
+
+function checkPlatformCollision(){
+  for(let p of platforms){
+    if(player.vy>0 &&
+       player.x+player.size/2>p.x &&
+       player.x-player.size/2<p.x+80 &&
+       player.y+player.size/2>p.y &&
+       player.y+player.size/2<p.y+10){
+      player.vy=jumpPower;
+      for(let i=0;i<10;i++){
+        sparkles.push({x:player.x+(Math.random()-0.5)*40, y:player.y+(Math.random()-0.5)*40, radius:Math.random()*3+1, life:20+Math.random()*20});
+      }
+    }
+  }
+}
+
+function loop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!gameStarted) return;
+
+  // Move player
+  if(left) player.x-=5;
+  if(right) player.x+=5;
+  if(player.x<0) player.x=400;
+  if(player.x>400) player.x=0;
+
+  // Gravity
+  player.vy+=gravity;
+  player.y+=player.vy;
+
+  // Scroll screen
+  if(player.y<300){
+    let dy=300-player.y;
+    player.y=300;
+    for(let p of platforms){ p.y+=dy; }
+    goalPlatform.y+=dy;
+  }
+
+  checkPlatformCollision();
+
+  // Fall off screen → restart
+  if(player.y>650) location.reload();
+
+  // Draw unicorn
+  ctx.drawImage(playerImg, player.x-25, player.y-25,50,50);
+
+  // Draw platforms
+  ctx.fillStyle="#9ce7ff";
+  for(let p of platforms) ctx.fillRect(p.x,p.y,80,10);
+
+  // Draw goal platform
+  ctx.fillStyle="#ffd700";
+  ctx.fillRect(goalPlatform.x, goalPlatform.y, goalPlatform.width, goalPlatform.height);
+  let logoImg=new Image();
+  logoImg.src=goalPlatform.logo;
+  ctx.drawImage(logoImg, goalPlatform.x, goalPlatform.y-50, goalPlatform.width,50);
+
+  // Check win
+  if(player.y-player.size/2 <= goalPlatform.y+goalPlatform.height){
+    document.getElementById("clearScreen").style.display="flex";
+    return;
+  }
+
+  // Snow
+  ctx.fillStyle="white";
+  for(let s of snowflakes){
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.radius,0,Math.PI*2); ctx.fill();
+    s.y+=s.speed;
+    if(s.y>600) s.y=0;
+  }
+
+  // Sparkles
+  for(let i=sparkles.length-1;i>=0;i--){
+    let sp=sparkles[i];
+    ctx.fillStyle=`rgba(255,255,255,${sp.life/40})`;
+    ctx.beginPath(); ctx.arc(sp.x,sp.y,sp.radius,0,Math.PI*2); ctx.fill();
+    sp.life--;
+    if(sp.life<=0) sparkles.splice(i,1);
+  }
+
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
